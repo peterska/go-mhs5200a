@@ -1,0 +1,15 @@
+{
+    "cmds" : [
+        { "cmd" : "config", "data" : [ { "channel" : 1, "frequency" : 25e03, "waveform" : "square", "amplitude" : 0.5, "phase" : 90.0, "duty" : 33.3, "attenuation" : true } ] },
+        { "cmd" : "showconfig", "data" : [ { "channel" : 1 } ] },
+        { "cmd" : "on", "data" : [ { "channel" : 1 } ] },
+        { "cmd" : "delay", "data" : [ { "seconds" : 15 } ] },
+        { "cmd" : "config", "data" : [ { "channel" : 1, "frequency" : 100e03, "waveform" : "sine", "amplitude" : 0.33, "phase" : 180.0, "duty" : 50.0, "attenuation" : true } ] },
+        { "cmd" : "showconfig", "data" : [ { "channel" : 1 } ] },
+        { "cmd" : "delay", "data" : [ { "seconds" : 15 } ] },
+        { "cmd" : "config", "data" : [ { "channel" : 1, "frequency" : 10e03, "waveform" : "triangle", "amplitude" : 0.5, "phase" : 0.0, "duty" : 75.0, "attenuation" : true } ] },
+        { "cmd" : "showconfig", "data" : [ { "channel" : 1 } ] },
+        { "cmd" : "delay", "data" : [ { "seconds" : 15 } ] },
+        { "cmd" : "off", "data" : [ { "channel" : 1 } ] }
+    ]
+}

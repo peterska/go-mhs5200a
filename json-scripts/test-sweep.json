@@ -1,0 +1,12 @@
+{
+    "cmds" : [
+        { "cmd" : "configsweep", "data" : [ { "startf" : 1e03, "endf" : 100e03, "seconds" : 10, "type" : "log", "waveform": "square", "duty" : 50.0 } ] },
+        { "cmd" : "showsweep" },
+        { "cmd" : "sweepon" },
+        { "cmd" : "on" },
+        { "cmd" : "delay", "data" : [ { "seconds" : 20 } ] },
+        { "cmd" : "sweepoff" },
+        
+        { "cmd" : "off" }
+    ]
+}

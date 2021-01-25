@@ -1,0 +1,26 @@
+{
+    "cmds" : [
+        { "cmd" : "config", "data" : [ { "channel" : 1, "frequency" : 25e03, "waveform" : "square", "amplitude" : 5.0, "phase" : 90.0, "duty" : 33.3, "attenuation" : false } ] },
+        { "cmd" : "on", "data" : [ { "channel" : 1 } ] },
+        { "cmd" : "showconfig", "data" : [ { "channel" : 1 } ] },
+        { "cmd" : "delay", "data" : [ { "seconds" : 15 } ] },
+        
+        { "cmd" : "config", "data" : [ { "channel" : 1, "frequency" : 50e03, "waveform" : "sine", "amplitude" : 3.3, "phase" : 180.0, "duty" : 50.0, "attenuation" : false } ] },
+        { "cmd" : "showconfig", "data" : [ { "channel" : 1 } ] },
+        { "cmd" : "delay", "data" : [ { "seconds" : 15 } ] },
+        
+        { "cmd" : "config", "data" : [ { "channel" : 1, "frequency" : 55e03, "waveform" : "triangle", "amplitude" : 5.0, "phase" : 0.0, "duty" : 75.0, "attenuation" : false } ] },
+        { "cmd" : "showconfig", "data" : [ { "channel" : 1 } ] },
+        { "cmd" : "delay", "data" : [ { "seconds" : 15 } ] },
+        
+        { "cmd" : "config", "data" : [ { "channel" : 1, "frequency" : 60e03, "waveform" : "rising sawtooth", "amplitude" : 5.0, "phase" : 0.0, "duty" : 50.0, "attenuation" : false } ] },
+        { "cmd" : "showconfig", "data" : [ { "channel" : 1 } ] },
+        { "cmd" : "delay", "data" : [ { "seconds" : 15 } ] },
+        
+        { "cmd" : "config", "data" : [ { "channel" : 1, "frequency" : 65e03, "waveform" : "descending sawtooth", "amplitude" : 5.0, "phase" : 0.0, "duty" : 50.0, "attenuation" : false } ] },
+        { "cmd" : "showconfig", "data" : [ { "channel" : 1 } ] },
+        { "cmd" : "delay", "data" : [ { "seconds" : 15 } ] },
+        
+        { "cmd" : "off", "data" : [ { "channel" : 1 } ] }
+    ]
+}

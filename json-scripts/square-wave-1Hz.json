@@ -1,0 +1,6 @@
+{
+    "cmds" : [
+        { "cmd" : "config", "data" : [ { "channel" : 1, "frequency" : 1.0, "waveform" : "square", "amplitude" : 5.0, "phase" : 0.0, "duty" : 50.0, "attenuation" : false } ] },
+        { "cmd" : "showconfig", "data" : [ { "channel" : 1 } ] }
+    ]
+}
