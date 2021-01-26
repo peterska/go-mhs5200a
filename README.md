@@ -1,7 +1,6 @@
 Remote control of the MHS-5200A function generator
 ===========
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/peterska/go-mhs5200a)](https://goreportcard.com/report/github.com/peterska/go-mhs5200a)
 [![BSD 3-Clause License](http://img.shields.io/badge/bsd-3-clause.svg)](./LICENSE)
 
 About

@@ -51,13 +51,13 @@ func usage() {
 	fmt.Printf("\noptions can be zero or more of the following:\n")
 	flag.PrintDefaults()
 	fmt.Printf("\n")
-	
+
 	fmt.Printf("command can be one or more of the following:\n")
-  	fmt.Printf("  showconfig - show the configuration of the current channel\n")
+	fmt.Printf("  showconfig - show the configuration of the current channel\n")
 	fmt.Printf("  on - turn output on\n")
 	fmt.Printf("  off - turn output off\n")
 	fmt.Printf("\n")
-	
+
 	fmt.Printf("  channel [1|2] - sets the channel number commands will apply to\n")
 	fmt.Printf("  frequency N - set the frequency N Hz\n")
 	fmt.Printf("  waveform name - set the waveform to name. Valid names are sine, square, triangle, rising sawtooth, descending sawtooth\n")
@@ -66,7 +66,7 @@ func usage() {
 	fmt.Printf("  offset N - set the DC offset to N%% of the amplitude. Valid range is -120%% to +120%%\n")
 	fmt.Printf("  phase N - set the phase to N°\n")
 	fmt.Printf("  attenuation [on|off] - configure -20dB channel attenuation\n")
-	
+
 	fmt.Printf("\n")
 	fmt.Printf("  showsweep - show the current sweep mode configuration\n")
 	fmt.Printf("  sweepstart N - set the sweep start frequenecy to N Hz\n")
@@ -75,11 +75,11 @@ func usage() {
 	fmt.Printf("  sweeptype [log|linear] - set the sweep type to either log or linear\n")
 	fmt.Printf("  sweepon - turn sweep function on\n")
 	fmt.Printf("  sweepoff - turn sweep function off\n")
-	
+
 	fmt.Printf("\n")
 	fmt.Printf("  sleep N - delay N seconds before executing the next command\n")
 	fmt.Printf("  delay N - delay N seconds before executing the next command\n")
-	
+
 	fmt.Printf("\n")
 	fmt.Printf("  save N - save current configuration to slot N\n")
 	fmt.Printf("  load N - load current configuration from slot N\n")
