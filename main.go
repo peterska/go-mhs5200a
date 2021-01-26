@@ -1,26 +1,35 @@
 /*
- *
  * cmdline utility to configure and control the MHS-5200A series for function generators
  *
- * Copyright (c) 2020 - 2021 Peter Skarpetis
+ * BSD 3-Clause License
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ * Copyright (c) 2020 - 2021, Peter Skarpetis
+ * All rights reserved.
  *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 
@@ -31,21 +40,69 @@ import (
 	"fmt"
 	"github.com/peterska/go-utils"
 	"os"
+	"path"
 	"strconv"
 	"time"
 )
 
+func usage() {
+	fmt.Printf("Usage: %v [options] [command]...\n", path.Base(os.Args[0]))
+
+	fmt.Printf("\noptions can be zero or more of the following:\n")
+	flag.PrintDefaults()
+	fmt.Printf("\n")
+	
+	fmt.Printf("command can be one or more of the following:\n")
+  	fmt.Printf("  showconfig - show the configuration of the current channel\n")
+	fmt.Printf("  on - turn output on\n")
+	fmt.Printf("  off - turn output off\n")
+	fmt.Printf("\n")
+	
+	fmt.Printf("  channel [1|2] - sets the channel number commands will apply to\n")
+	fmt.Printf("  frequency N - set the frequency N Hz\n")
+	fmt.Printf("  waveform name - set the waveform to name. Valid names are sine, square, triangle, rising sawtooth, descending sawtooth\n")
+	fmt.Printf("  amplitude N - set the amplitude to N Volts\n")
+	fmt.Printf("  duty N - set the duty cycle to N%%\n")
+	fmt.Printf("  offset N - set the DC offset to N%% of the amplitude. Valid range is -120%% to +120%%\n")
+	fmt.Printf("  phase N - set the phase to N°\n")
+	fmt.Printf("  attenuation [on|off] - configure -20dB channel attenuation\n")
+	
+	fmt.Printf("\n")
+	fmt.Printf("  showsweep - show the current sweep mode configuration\n")
+	fmt.Printf("  sweepstart N - set the sweep start frequenecy to N Hz\n")
+	fmt.Printf("  sweepend N - set the sweep end frequenecy to N Hz\n")
+	fmt.Printf("  sweepduration N - set the sweep duration to N secs\n")
+	fmt.Printf("  sweeptype [log|linear] - set the sweep type to either log or linear\n")
+	fmt.Printf("  sweepon - turn sweep function on\n")
+	fmt.Printf("  sweepoff - turn sweep function off\n")
+	
+	fmt.Printf("\n")
+	fmt.Printf("  sleep N - delay N seconds before executing the next command\n")
+	fmt.Printf("  delay N - delay N seconds before executing the next command\n")
+	
+	fmt.Printf("\n")
+	fmt.Printf("  save N - save current configuration to slot N\n")
+	fmt.Printf("  load N - load current configuration from slot N\n")
+
+	fmt.Printf("\n")
+	fmt.Printf("Examples:\n")
+	fmt.Printf("%v channel 2 frequency 10000 phase 180 waveform square duty 33.25 attenuation off showconfig on sleep 120 off\n", path.Base(os.Args[0]))
+	fmt.Printf("%v sweepstart 10 sweepend 100000 sweepduration 60 sweetype linear showsweep sweepon delay 60 sweepoff\n", path.Base(os.Args[0]))
+	fmt.Printf("%v save 10\n", path.Base(os.Args[0]))
+	fmt.Printf("%v load 10\n", path.Base(os.Args[0]))
+}
+
 func main() {
 	var verbose = flag.Int("v", 0, "verbose level")
-	var debug = flag.Int("debug", 0, "debug level, 0=production, >0 is devmode")
-	var pprof = flag.Bool("pprof", false, "enable golang profling")
+	//var debug = flag.Int("debug", 0, "debug level, 0=production, >0 is devmode")
+	//var pprof = flag.Bool("pprof", false, "enable golang profling")
 	var port = flag.String("port", "/dev/ttyUSB0", "port the MHS-5200A is connected to")
 	var scriptfile = flag.String("script", "", "json script file")
 	flag.Parse()
 
-	goutils.SetDebuglevel(*debug)
+	//goutils.SetDebuglevel(*debug)
+	//goutils.SetProfiling(*pprof)
 	goutils.SetLoglevel(*verbose)
-	goutils.SetProfiling(*pprof)
 
 	if len(*scriptfile) > 0 {
 		err := playbackScript(*scriptfile, *port)
@@ -55,6 +112,7 @@ func main() {
 		}
 	}
 	if len(flag.Args()) == 0 { // nothing to do
+		usage()
 		return
 	}
 	mhs5200, err := NewMHS5200A(*port)
@@ -294,6 +352,18 @@ func main() {
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
 				break
+			}
+
+		case "sweepon":
+			err = mhs5200.SetSweepState(true)
+			if err != nil {
+				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+			}
+
+		case "sweepoff":
+			err = mhs5200.SetSweepState(false)
+			if err != nil {
+				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
 			}
 
 		case "on":
