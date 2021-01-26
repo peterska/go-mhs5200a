@@ -423,34 +423,44 @@ func (mhs5200 *MHS5200A) GetDutyCycle(ch uint) (float64, error) {
 	return v, nil
 }
 
-func (mhs5200 *MHS5200A) OffsetString(v int) string {
-	return fmt.Sprintf("%d%%", v)
+func (mhs5200 *MHS5200A) OffsetString(v float64) string {
+	return mhs5200.AmplitudeString(v)
 }
 
-func (mhs5200 *MHS5200A) SetOffset(ch uint, v int) error {
+func (mhs5200 *MHS5200A) SetOffset(ch uint, v float64) error {
 	if v == math.MaxUint32 {
 		return nil
 	}
-	if v < -120 || v > 120 {
-		return fmt.Errorf("%v is not a valid value", v)
+	ampl, err := mhs5200.GetAmplitude(ch)
+	if err != nil {
+		return err
 	}
-	return mhs5200.sendCommandAndExpect([]byte(fmt.Sprintf(":s%do%d", ch, v+120)), "ok")
+	v = v / ampl * 100.0
+	if v < -120 || v > 120 {
+		return fmt.Errorf("%v is not a valid offset. Supported values are between -120%% and 120%% of the amplitude value", v)
+	}
+	return mhs5200.sendCommandAndExpect([]byte(fmt.Sprintf(":s%do%d", ch, int(math.Round(v))+120)), "ok")
 }
 
-func (mhs5200 *MHS5200A) GetOffset(ch uint) (int, error) {
+func (mhs5200 *MHS5200A) GetOffset(ch uint) (float64, error) {
+	ampl, err := mhs5200.GetAmplitude(ch)
+	if err != nil {
+		return math.NaN(), err
+	}
 	data, err := mhs5200.sendCommand([]byte(fmt.Sprintf(":r%do", ch)))
 	if err != nil {
-		return 0.0, err
+		return math.NaN(), err
 	}
 	if len(data) < 4 {
-		return 0.0, fmt.Errorf("data underlow")
+		return math.NaN(), fmt.Errorf("data underlow")
 	}
 	data = data[4:]
-	v, err := strconv.ParseInt(string(data), 10, 64)
+	v, err := strconv.ParseFloat(string(data), 64)
 	if err != nil {
-		return 0.0, err
+		return math.NaN(), err
 	}
-	return int(v - 120), nil
+	v = ampl * (v - 120.0) / 100.0
+	return v, nil
 }
 
 func (mhs5200 *MHS5200A) PhaseString(v uint) string {
@@ -913,7 +923,7 @@ func (mhs5200 *MHS5200A) ApplyChannelConfig(v *CHANNELVALS) error {
 		}
 	}
 	if !math.IsNaN(v.Offset) {
-		err = mhs5200.SetOffset(v.Channel, int(math.Round(v.Offset)))
+		err = mhs5200.SetOffset(v.Channel, v.Offset)
 		if err != nil {
 			return err
 		}

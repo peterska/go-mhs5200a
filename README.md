@@ -48,7 +48,7 @@ command can be one or more of the following:
   waveform name - set the waveform to name. Valid names are sine, square, triangle, rising sawtooth, descending sawtooth
   amplitude N - set the amplitude to N Volts
   duty N - set the duty cycle to N%
-  offset N - set the DC offset to N% of the amplitude. Valid range is -120% to +120%
+  offset N - set the DC offset to N Volts. Valid range is -120% to +120% of the configured amplitude
   phase N - set the phase to N°
   attenuation [on|off] - configure -20dB channel attenuation
 

@@ -63,7 +63,7 @@ func usage() {
 	fmt.Printf("  waveform name - set the waveform to name. Valid names are sine, square, triangle, rising sawtooth, descending sawtooth\n")
 	fmt.Printf("  amplitude N - set the amplitude to N Volts\n")
 	fmt.Printf("  duty N - set the duty cycle to N%%\n")
-	fmt.Printf("  offset N - set the DC offset to N%% of the amplitude. Valid range is -120%% to +120%%\n")
+	fmt.Printf("  offset N - set the DC offset to N Volts. Valid range is -120%% to +120%% of the configured amplitude\n")
 	fmt.Printf("  phase N - set the phase to N°\n")
 	fmt.Printf("  attenuation [on|off] - configure -20dB channel attenuation\n")
 
@@ -259,7 +259,7 @@ func main() {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
 				break
 			}
-			err = mhs5200.SetOffset(channel, int(v))
+			err = mhs5200.SetOffset(channel, v)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
 			}
