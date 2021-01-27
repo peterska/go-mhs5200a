@@ -60,6 +60,8 @@ command can be one or more of the following:
   sweepon - turn sweep function on
   sweepoff - turn sweep function off
 
+  measure cmd - measure values from waveform on ext-input. cmd can be one of frequency, count, period, pulsewidth, duty, negativepulsewidth, stop
+
   sleep N - delay N seconds before executing the next command
   delay N - delay N seconds before executing the next command
 
@@ -69,6 +71,7 @@ command can be one or more of the following:
 Examples:
 mhs5200a channel 2 frequency 10000 phase 180 waveform square duty 33.25 attenuation off showconfig on sleep 120 off
 mhs5200a sweepstart 10 sweepend 100000 sweepduration 60 sweetype linear showsweep sweepon delay 60 sweepoff
+mhs5200a frequency 15.503 waveform square duty 50.0 on measure frequency sleep 10 measure stop off
 mhs5200a save 10
 mhs5200a load 10
 ````
@@ -129,6 +132,28 @@ Let's look at a brief example
 ````
 The first line, cmd config, configures channel 1 for a frequency of 1KHz, a square waveform, an amplitude for 5.0V, a phase angle of 0 degrees, a 50% duty cycle and turns off the -20dB attenuation.
 The second line simply dumps the configuration for channel 1.
+
+Here is an example that show how to use the measurement fucntions
+````JSON
+{
+    "cmds" : [
+        { "cmd" : "config", "data" : [ { "channel" : 1, "frequency" : 25e03, "waveform" : "square", "amplitude" : 5.0, "phase" : 180.0, "duty" : 55.0, "attenuation" : false } ] },
+        { "cmd" : "on" },
+        
+        { "cmd" : "measure", "data" : [ { "type" : "frequency" } ] },
+        { "cmd" : "delay", "data" : [ { "seconds" : 5 } ] },
+        
+        { "cmd" : "measure", "data" : [ { "type" : "period" } ] },
+        { "cmd" : "delay", "data" : [ { "seconds" : 5 } ] },
+        
+        { "cmd" : "measure", "data" : [ { "type" : "duty" } ] },
+        { "cmd" : "delay", "data" : [ { "seconds" : 5 } ] },
+        
+        { "cmd" : "measure", "data" : [ { "type" : "off" } ] },
+        { "cmd" : "off" }
+    ]
+}
+````
 
 Here is another more complicated example, that shows most of the commands available
 ````JSON

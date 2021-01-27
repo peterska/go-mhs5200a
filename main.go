@@ -53,7 +53,7 @@ func usage() {
 	fmt.Printf("\n")
 
 	fmt.Printf("command can be one or more of the following:\n")
-	fmt.Printf("  showconfig - show the configuration of the current channel\n")
+	fmt.Printf("  showconfig - show the configuration of the current channel. Use channel to 0 to show config for all channels\n")
 	fmt.Printf("  on - turn output on\n")
 	fmt.Printf("  off - turn output off\n")
 	fmt.Printf("\n")
@@ -66,8 +66,8 @@ func usage() {
 	fmt.Printf("  offset N - set the DC offset to N Volts. Valid range is -120%% to +120%% of the configured amplitude\n")
 	fmt.Printf("  phase N - set the phase to N°\n")
 	fmt.Printf("  attenuation [on|off] - configure -20dB channel attenuation\n")
-
 	fmt.Printf("\n")
+	
 	fmt.Printf("  showsweep - show the current sweep mode configuration\n")
 	fmt.Printf("  sweepstart N - set the sweep start frequenecy to N Hz\n")
 	fmt.Printf("  sweepend N - set the sweep end frequenecy to N Hz\n")
@@ -75,19 +75,23 @@ func usage() {
 	fmt.Printf("  sweeptype [log|linear] - set the sweep type to either log or linear\n")
 	fmt.Printf("  sweepon - turn sweep function on\n")
 	fmt.Printf("  sweepoff - turn sweep function off\n")
-
 	fmt.Printf("\n")
+	
+	fmt.Printf("  measure cmd - measure values from waveform on ext-input. cmd can be one of frequency, count, period, pulsewidth, duty, negativepulsewidth, stop\n")
+	fmt.Printf("\n")
+	
 	fmt.Printf("  sleep N - delay N seconds before executing the next command\n")
 	fmt.Printf("  delay N - delay N seconds before executing the next command\n")
-
 	fmt.Printf("\n")
+	
 	fmt.Printf("  save N - save current configuration to slot N\n")
 	fmt.Printf("  load N - load current configuration from slot N\n")
-
 	fmt.Printf("\n")
+	
 	fmt.Printf("Examples:\n")
 	fmt.Printf("%v channel 2 frequency 10000 phase 180 waveform square duty 33.25 attenuation off showconfig on sleep 120 off\n", path.Base(os.Args[0]))
 	fmt.Printf("%v sweepstart 10 sweepend 100000 sweepduration 60 sweetype linear showsweep sweepon delay 60 sweepoff\n", path.Base(os.Args[0]))
+	fmt.Printf("%v frequency 15.503 waveform square duty 50.0 on measure frequency sleep 10 measure stop off\n", path.Base(os.Args[0]))
 	fmt.Printf("%v save 10\n", path.Base(os.Args[0]))
 	fmt.Printf("%v load 10\n", path.Base(os.Args[0]))
 }
@@ -181,8 +185,11 @@ func main() {
 			time.Sleep(time.Duration(v) * time.Second)
 
 		case "showconfig":
-			var err error
-			err = mhs5200.ShowChannelConfig(channel)
+			if channel == 0 {
+				err = mhs5200.ShowConfig()
+			} else {
+				err = mhs5200.ShowChannelConfig(channel)
+			}
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
 			}
@@ -404,6 +411,16 @@ func main() {
 				break
 			}
 			err = mhs5200.Load(uint(v))
+			if err != nil {
+				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+			}
+
+		case "measure":
+			if len(param) == 0 {
+				needparam = true
+				continue
+			}
+			err = mhs5200.Measure(param)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
 			}

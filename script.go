@@ -235,6 +235,14 @@ func playbackScript(scriptfile string, port string) error {
 				time.Sleep(time.Second * 1)
 			}
 
+		case "measure":
+			if cmd.Data != nil {
+				for _, data := range cmd.Data {
+					if data.Type != nil {
+						err = mhs5200.Measure(*data.Type)
+					}
+				}
+			}
 		case "sleep":
 			if cmd.Data != nil {
 				for _, data := range cmd.Data {

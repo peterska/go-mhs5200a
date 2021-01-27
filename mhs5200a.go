@@ -91,6 +91,15 @@ const (
 	WAVEFORM_ARBITRARY_STR           = "arbitrary"
 )
 
+const (
+	COUNTER_MEASURE_FREQUENCY = iota
+	COUNTER_MEASURE_COUNT
+	COUNTER_MEASURE_PERIOD
+	COUNTER_MEASURE_PULSE_WIDTH
+	COUNTER_MEASURE_NEGATIVE_PULSE_WIDTH
+	COUNTER_MEASURE_DUTY_CYCLE
+)
+
 type SWEEPVALS struct {
 	Startf   float64
 	Endf     float64
@@ -112,10 +121,13 @@ type CHANNELVALS struct {
 }
 
 type MHS5200A struct {
-	stream *serial.Port
-	quit   chan struct{}
-	wg     sync.WaitGroup
-	port   string
+	stream      *serial.Port
+	quit        chan struct{}
+	wg          sync.WaitGroup
+	mutex       sync.Mutex
+	port        string
+	measure     bool // whether we are reading measurements from the instrument
+	measuretype int  // type of measurement
 }
 
 func SiUnitsPrefix(exponent int) string {
@@ -158,6 +170,29 @@ func SiUnitsPrefix(exponent int) string {
 	return ""
 }
 
+func (mhs5200 *MHS5200A) MeasuretypeString(v int) string {
+	switch v {
+	case COUNTER_MEASURE_FREQUENCY:
+		return "frequency"
+
+	case COUNTER_MEASURE_COUNT:
+		return "count"
+
+	case COUNTER_MEASURE_PERIOD:
+		return "period"
+
+	case COUNTER_MEASURE_PULSE_WIDTH:
+		return "pulse width"
+
+	case COUNTER_MEASURE_NEGATIVE_PULSE_WIDTH:
+		return "negative pulse width"
+
+	case COUNTER_MEASURE_DUTY_CYCLE:
+		return "duty cycle"
+	}
+	return "unknown"
+}
+
 func (mhs5200 *MHS5200A) OnOffString(v uint) string {
 	if v == 0 {
 		return "Off"
@@ -198,6 +233,8 @@ func (mhs5200 *MHS5200A) UnitsString(v float64, units string, engmode bool) stri
 }
 
 func (mhs5200 *MHS5200A) sendCommand(cmd []byte) ([]byte, error) {
+	mhs5200.mutex.Lock()
+	defer mhs5200.mutex.Unlock()
 	if goutils.Loglevel() > 1 {
 		goutils.Log.Printf("%v:\tsend:\t%s\n", goutils.Callername(), string(cmd))
 	}
@@ -242,6 +279,128 @@ func (mhs5200 *MHS5200A) sendCommandAndExpectUint(cmd []byte) (uint, error) {
 		return 0, err
 	}
 	return uint(v), nil
+}
+
+func (mhs5200 *MHS5200A) GetCounterValue() (uint, error) {
+	return mhs5200.sendCommandAndExpectUint([]byte(":r0e"))
+}
+
+func (mhs5200 *MHS5200A) GetFrequencyMeasurement() (float64, error) {
+	u, err := mhs5200.GetCounterValue()
+	if err != nil {
+		return math.NaN(), err
+	}
+	return float64(u), nil
+}
+
+func (mhs5200 *MHS5200A) GetPeriodMeasurement() (float64, error) {
+	u, err := mhs5200.GetCounterValue()
+	if err != nil {
+		return math.NaN(), err
+	}
+	return float64(u) * 1.0e-9, nil
+}
+
+func (mhs5200 *MHS5200A) GetDutyCycleMeasurement() (float64, error) {
+	u, err := mhs5200.GetCounterValue()
+	if err != nil {
+		return math.NaN(), err
+	}
+	return float64(u) / 10.0, nil
+}
+
+func (mhs5200 *MHS5200A) GetMeasurement() (float64, error) {
+	switch mhs5200.measuretype {
+	case COUNTER_MEASURE_FREQUENCY:
+		return mhs5200.GetFrequencyMeasurement()
+
+	case COUNTER_MEASURE_COUNT:
+		v, err := mhs5200.GetCounterValue()
+		return float64(v), err
+
+	case COUNTER_MEASURE_PERIOD:
+		return mhs5200.GetPeriodMeasurement()
+
+	case COUNTER_MEASURE_PULSE_WIDTH:
+		return mhs5200.GetPeriodMeasurement()
+
+	case COUNTER_MEASURE_NEGATIVE_PULSE_WIDTH:
+		return mhs5200.GetPeriodMeasurement()
+
+	case COUNTER_MEASURE_DUTY_CYCLE:
+		return mhs5200.GetDutyCycleMeasurement()
+	}
+	return math.NaN(), fmt.Errorf("Unknown measurement type %v", mhs5200.measuretype)
+}
+
+func (mhs5200 *MHS5200A) GetMeasurementAsString() (string, error) {
+	v, err := mhs5200.GetMeasurement()
+	if err != nil {
+		return "", err
+	}
+	switch mhs5200.measuretype {
+	case COUNTER_MEASURE_FREQUENCY:
+		return mhs5200.FrequencyString(v), nil
+
+	case COUNTER_MEASURE_COUNT:
+		return fmt.Sprintf("%v", uint(v)), nil
+
+	case COUNTER_MEASURE_PERIOD:
+		return mhs5200.UnitsString(v, "s", true), nil
+
+	case COUNTER_MEASURE_PULSE_WIDTH:
+		return mhs5200.UnitsString(v, "s", true), nil
+
+	case COUNTER_MEASURE_NEGATIVE_PULSE_WIDTH:
+		return mhs5200.UnitsString(v, "s", true), nil
+
+	case COUNTER_MEASURE_DUTY_CYCLE:
+		return mhs5200.DutyCycleString(v), nil
+	}
+	return "", fmt.Errorf("Unknown measurement type %v", mhs5200.measuretype)
+}
+
+func (mhs5200 *MHS5200A) Measure(cmd string) error {
+	var err error = nil
+	switch cmd {
+	case "stop":
+		mhs5200.measure = false
+		err = mhs5200.sendCommandAndExpect([]byte(fmt.Sprintf(":s6b%d", 0)), "ok")
+
+	case "frequency":
+		mhs5200.measuretype = COUNTER_MEASURE_FREQUENCY
+		err = mhs5200.sendCommandAndExpect([]byte(fmt.Sprintf(":s%dm", mhs5200.measuretype)), "ok")
+		mhs5200.measure = true
+
+	case "count":
+		mhs5200.measuretype = COUNTER_MEASURE_COUNT
+		err = mhs5200.sendCommandAndExpect([]byte(fmt.Sprintf(":s%dm", mhs5200.measuretype)), "ok")
+		mhs5200.measure = true
+
+	case "period":
+		mhs5200.measuretype = COUNTER_MEASURE_PERIOD
+		err = mhs5200.sendCommandAndExpect([]byte(fmt.Sprintf(":s%dm", mhs5200.measuretype)), "ok")
+		mhs5200.measure = true
+
+	case "pulsewidth":
+		mhs5200.measuretype = COUNTER_MEASURE_PULSE_WIDTH
+		err = mhs5200.sendCommandAndExpect([]byte(fmt.Sprintf(":s%dm", mhs5200.measuretype)), "ok")
+		mhs5200.measure = true
+
+	case "negativepulsewidth":
+		mhs5200.measuretype = COUNTER_MEASURE_NEGATIVE_PULSE_WIDTH
+		err = mhs5200.sendCommandAndExpect([]byte(fmt.Sprintf(":s%dm", mhs5200.measuretype)), "ok")
+		mhs5200.measure = true
+
+	case "duty":
+		mhs5200.measuretype = COUNTER_MEASURE_DUTY_CYCLE
+		err = mhs5200.sendCommandAndExpect([]byte(fmt.Sprintf(":s%dm", mhs5200.measuretype)), "ok")
+		mhs5200.measure = true
+		
+	default:
+		err = fmt.Errorf("unknown measure paramter %v", cmd)
+	}
+	return err
 }
 
 func (mhs5200 *MHS5200A) FrequencyString(v float64) string {
@@ -932,12 +1091,23 @@ func (mhs5200 *MHS5200A) ApplyChannelConfig(v *CHANNELVALS) error {
 }
 
 func (mhs5200 *MHS5200A) mhs5200() {
+	measure_ticker := time.NewTicker(1 * time.Second)
+	defer measure_ticker.Stop()
 	for {
 		select {
 		case <-mhs5200.quit:
 			mhs5200.wg.Done()
 			return
 
+		case <-measure_ticker.C:
+			if mhs5200.measure {
+				s, err := mhs5200.GetMeasurementAsString()
+				if err == nil {
+					fmt.Println(s)
+				} else {
+					goutils.Log.Print(err)
+				}
+			}
 		}
 	}
 }

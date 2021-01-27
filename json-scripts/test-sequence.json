@@ -1,7 +1,7 @@
 {
     "cmds" : [
         { "cmd" : "config", "data" : [ { "channel" : 1, "frequency" : 25e03, "waveform" : "square", "amplitude" : 5.0, "phase" : 90.0, "duty" : 33.3, "attenuation" : false } ] },
-        { "cmd" : "on", "data" : [ { "channel" : 1 } ] },
+        { "cmd" : "on" },
         { "cmd" : "showconfig", "data" : [ { "channel" : 1 } ] },
         { "cmd" : "delay", "data" : [ { "seconds" : 15 } ] },
         

@@ -1,0 +1,18 @@
+{
+    "cmds" : [
+        { "cmd" : "config", "data" : [ { "channel" : 1, "frequency" : 25e03, "waveform" : "square", "amplitude" : 5.0, "phase" : 180.0, "duty" : 55.0, "attenuation" : false } ] },
+        { "cmd" : "on" },
+        
+        { "cmd" : "measure", "data" : [ { "type" : "frequency" } ] },
+        { "cmd" : "delay", "data" : [ { "seconds" : 5 } ] },
+        
+        { "cmd" : "measure", "data" : [ { "type" : "period" } ] },
+        { "cmd" : "delay", "data" : [ { "seconds" : 5 } ] },
+        
+        { "cmd" : "measure", "data" : [ { "type" : "duty" } ] },
+        { "cmd" : "delay", "data" : [ { "seconds" : 5 } ] },
+        
+        { "cmd" : "measure", "data" : [ { "type" : "off" } ] },
+        { "cmd" : "off" }
+    ]
+}
