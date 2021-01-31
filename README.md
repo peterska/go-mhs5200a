@@ -96,6 +96,7 @@ showsweep
 configsweep
 sweepon
 sweepoff
+measure
 ````
 A list of available parameters that can be specified in the data array are show below:
 ````
@@ -190,8 +191,6 @@ Here is another more complicated example, that shows most of the commands availa
     ]
 }
 ````
-
-
 Contact
 -------
 
@@ -201,3 +200,13 @@ License
 -------
 
 go-mhs5200a is licensed under the BSD 3-Clause License
+
+Additional Links
+----------------
+
+Credit for all of the hard work goes to user `wd5gnr` from [EEV Blog](https://www.eevblog.com/) for reverse engineering the protcol and documenting it here: [MHS5200A Protocol](https://docs.google.com/document/d/1HbLQ4u87RJkD3Ktyw7k9U7Zh5BPNzbrhMlszNGdXiiY/edit)
+
+- [MHS-5200A Serial Protocol Reverse Engineered](https://www.eevblog.com/forum/testgear/mhs-5200a-serial-protocol-reverse-engineered/)
+
+- [MHS-5200A function generator teardown / review / reverse engineering](https://www.eevblog.com/forum/testgear/mhs-5200a-function-generator-teardown-review-reverse-engineering/)
+
