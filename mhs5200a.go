@@ -36,11 +36,13 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/peterska/go-utils"
 	"github.com/tarm/serial"
 	"io/ioutil"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -56,6 +58,21 @@ const (
 
 	SWEEP_START = 0
 	SWEEP_STOP  = 1
+
+	MHS5200A_CMD_TIMEOUT = 500 * time.Millisecond
+)
+
+const (
+	ARB_WAVEFORM_NUM_POINTS        = 2048
+	ARB_WAVEFORM_MAX_AMPLITUDE     = 4095
+	ARB_WAVEFORM_NUM_SLICES        = 16
+	ARB_WAVEFORM_SAMPLES_PER_SLICE = 128
+
+	// range of input values for arbitrary waveform definition
+	ARB_WAVEFORM_INPUT_MIN  = -1.0
+	ARB_WAVEFORM_INPUT_MAX  = 1.0
+	ARB_WAVEFORM_OUTPUT_MIN = 0.0
+	ARB_WAVEFORM_OUTPUT_MAX = 4095.0
 )
 
 const (
@@ -64,22 +81,46 @@ const (
 	WAVEFORM_TRIANGLE
 	WAVEFORM_RISING_SAWTOOTH
 	WAVEFORM_DESCENDING_SAWTOOTH
-	WAVEFORM_ARBITRARY_0 = iota + 100
-	WAVEFORM_ARBITRARY_1
-	WAVEFORM_ARBITRARY_2
-	WAVEFORM_ARBITRARY_3
-	WAVEFORM_ARBITRARY_4
-	WAVEFORM_ARBITRARY_5
-	WAVEFORM_ARBITRARY_6
-	WAVEFORM_ARBITRARY_7
-	WAVEFORM_ARBITRARY_8
-	WAVEFORM_ARBITRARY_9
-	WAVEFORM_ARBITRARY_10
-	WAVEFORM_ARBITRARY_11
-	WAVEFORM_ARBITRARY_12
-	WAVEFORM_ARBITRARY_13
-	WAVEFORM_ARBITRARY_14
-	WAVEFORM_ARBITRARY_15
+	WAVEFORM_SINC
+	WAVEFORM_NORM_SINC
+)
+
+const (
+	WAVEFORM_ARB_0 = iota + 100
+	WAVEFORM_ARB_1
+	WAVEFORM_ARB_2
+	WAVEFORM_ARB_3
+	WAVEFORM_ARB_4
+	WAVEFORM_ARB_5
+	WAVEFORM_ARB_6
+	WAVEFORM_ARB_7
+	WAVEFORM_ARB_8
+	WAVEFORM_ARB_9
+	WAVEFORM_ARB_10
+	WAVEFORM_ARB_11
+	WAVEFORM_ARB_12
+	WAVEFORM_ARB_13
+	WAVEFORM_ARB_14
+	WAVEFORM_ARB_15
+)
+
+const (
+	WAVEFORM_ARB_ALT_0 = iota + 10
+	WAVEFORM_ARB_ALT_1
+	WAVEFORM_ARB_ALT_2
+	WAVEFORM_ARB_ALT_3
+	WAVEFORM_ARB_ALT_4
+	WAVEFORM_ARB_ALT_5
+	WAVEFORM_ARB_ALT_6
+	WAVEFORM_ARB_ALT_7
+	WAVEFORM_ARB_ALT_8
+	WAVEFORM_ARB_ALT_9
+	WAVEFORM_ARB_ALT_10
+	WAVEFORM_ARB_ALT_11
+	WAVEFORM_ARB_ALT_12
+	WAVEFORM_ARB_ALT_13
+	WAVEFORM_ARB_ALT_14
+	WAVEFORM_ARB_ALT_15
 )
 
 const (
@@ -88,7 +129,10 @@ const (
 	WAVEFORM_TRIANGLE_STR            = "triangle"
 	WAVEFORM_RISING_SAWTOOTH_STR     = "rising sawtooth"
 	WAVEFORM_DESCENDING_SAWTOOTH_STR = "descending sawtooth"
-	WAVEFORM_ARBITRARY_STR           = "arbitrary"
+	WAVEFORM_SINC_STR                = "sinc"
+	WAVEFORM_NORM_SINC_STR           = "normsinc"
+	WAVEFORM_ARB_STR                 = "arbitrary"
+	WAVEFORM_ARB_STR_SHORT           = "arb"
 )
 
 const (
@@ -128,6 +172,86 @@ type MHS5200A struct {
 	port        string
 	measure     bool // whether we are reading measurements from the instrument
 	measuretype int  // type of measurement
+}
+
+// normalise values to the requested range
+func normalise(data []float64, inmin float64, inmax float64, outmin float64, outmax float64) {
+	fmt.Printf("# Normalise: %v, %v -> %v, %v\n", inmin, inmax, outmin, outmax) //XXXXXXXXXXXXX
+	for i, _ := range data {
+		data[i] = outmin + (data[i]-inmin)*(outmax-outmin)/(inmax-inmin)
+	}
+}
+
+// normalise values to the requested range
+func autoNormalise(data []float64, outmin float64, outmax float64) {
+	minval := math.NaN()
+	maxval := math.NaN()
+	for _, v := range data {
+		if math.IsNaN(minval) || v < minval {
+			minval = v
+		}
+		if math.IsNaN(maxval) || v > maxval {
+			maxval = v
+		}
+	}
+	if minval >= 0 { // must be arbitrary waveform encoded with an offset
+		minval = 0
+		if maxval < 256 {
+			maxval = 255
+		} else if maxval < 512 {
+			maxval = 511
+		} else if maxval < 1024 {
+			maxval = 1023
+		} else if maxval < 2048 {
+			maxval = 2047
+		} else if maxval < 4096 {
+			maxval = 4095
+		} else if maxval < 8192 {
+			maxval = 8191
+		}
+	}
+	normalise(data, minval, maxval, outmin, outmax)
+}
+
+func normalisedSinc(x float64) float64 {
+	x *= math.Pi
+	if x != 0.0 {
+		return math.Sin(x) / x
+	}
+	return 1.0
+}
+
+func generateNormalisedSinc() []float64 {
+	waveform := make([]float64, ARB_WAVEFORM_NUM_POINTS)
+	xstart := -4.0 * math.Pi
+	xend := 3.0 * math.Pi
+	xstep := (xend - xstart) / float64(ARB_WAVEFORM_NUM_POINTS)
+	x := xstart
+	for i := 0; i < ARB_WAVEFORM_NUM_POINTS; i++ {
+		waveform[i] = normalisedSinc(x)
+		x += xstep
+	}
+	return waveform
+}
+
+func sinc(x float64) float64 {
+	if x != 0.0 {
+		return math.Sin(x) / x
+	}
+	return 1.0
+}
+
+func generateSinc() []float64 {
+	waveform := make([]float64, ARB_WAVEFORM_NUM_POINTS)
+	xstart := -6.0 * math.Pi
+	xend := 5.0 * math.Pi
+	xstep := (xend - xstart) / float64(ARB_WAVEFORM_NUM_POINTS)
+	x := xstart
+	for i := 0; i < ARB_WAVEFORM_NUM_POINTS; i++ {
+		waveform[i] = sinc(x)
+		x += xstep
+	}
+	return waveform
 }
 
 func SiUnitsPrefix(exponent int) string {
@@ -243,11 +367,22 @@ func (mhs5200 *MHS5200A) sendCommand(cmd []byte) ([]byte, error) {
 		goutils.Log.Print(err)
 		return nil, err
 	}
-	b, err := ioutil.ReadAll(mhs5200.stream)
-	if err != nil {
-		return nil, err
+
+	response := []byte{}
+	start := time.Now()
+	for time.Now().Sub(start) < MHS5200A_CMD_TIMEOUT {
+		b, err := ioutil.ReadAll(mhs5200.stream)
+		if err != nil {
+			return nil, err
+		}
+		if len(b) > 0 {
+			response = append(response, b...)
+			if response[len(response)-1] == '\n' {
+				break
+			}
+		}
 	}
-	s := []byte(strings.TrimRight(string(b), " \n\r"))
+	s := []byte(strings.TrimRight(string(response), " \n\r"))
 	if goutils.Loglevel() > 1 {
 		goutils.Log.Printf("%v:\treceive: %s", goutils.Callername(), s)
 	}
@@ -396,7 +531,7 @@ func (mhs5200 *MHS5200A) Measure(cmd string) error {
 		mhs5200.measuretype = COUNTER_MEASURE_DUTY_CYCLE
 		err = mhs5200.sendCommandAndExpect([]byte(fmt.Sprintf(":s%dm", mhs5200.measuretype)), "ok")
 		mhs5200.measure = true
-		
+
 	default:
 		err = fmt.Errorf("unknown measure paramter %v", cmd)
 	}
@@ -412,7 +547,7 @@ func (mhs5200 *MHS5200A) SetFrequency(ch uint, v float64) error {
 		return nil
 	}
 	if v < 0.0 || v > 25.0e6 {
-		return fmt.Errorf("%v is not a valid value", v)
+		return fmt.Errorf("%v is not a valid frequency", v)
 	}
 	return mhs5200.sendCommandAndExpect([]byte(fmt.Sprintf(":s%df%d", ch, int(v*100.0))), "ok")
 }
@@ -442,9 +577,17 @@ func (mhs5200 *MHS5200A) WaveformString(v uint) string {
 	case WAVEFORM_DESCENDING_SAWTOOTH:
 		return WAVEFORM_DESCENDING_SAWTOOTH_STR
 
+	case WAVEFORM_SINC:
+		return WAVEFORM_SINC_STR
+
+	case WAVEFORM_NORM_SINC:
+		return WAVEFORM_NORM_SINC_STR
+
 	}
-	if v >= WAVEFORM_ARBITRARY_0 && v <= WAVEFORM_ARBITRARY_15 {
-		return fmt.Sprintf("%s %v", WAVEFORM_ARBITRARY_STR, v-WAVEFORM_ARBITRARY_0)
+	if v >= WAVEFORM_ARB_0 && v <= WAVEFORM_ARB_15 {
+		return fmt.Sprintf("%s%d", WAVEFORM_ARB_STR, v-WAVEFORM_ARB_0)
+	} else if v >= WAVEFORM_ARB_ALT_0 && v <= WAVEFORM_ARB_ALT_15 {
+		return fmt.Sprintf("%s%d", WAVEFORM_ARB_STR, v-WAVEFORM_ARB_ALT_0)
 	}
 	return "unknown"
 }
@@ -466,16 +609,155 @@ func (mhs5200 *MHS5200A) WaveformStringToInt(s string) uint {
 	case WAVEFORM_DESCENDING_SAWTOOTH_STR:
 		return WAVEFORM_DESCENDING_SAWTOOTH
 
+	case WAVEFORM_SINC_STR:
+		return WAVEFORM_SINC
+
+	case WAVEFORM_NORM_SINC_STR:
+		return WAVEFORM_NORM_SINC
+
 	default:
+		if strings.HasPrefix(s, WAVEFORM_ARB_STR) {
+			s = strings.TrimPrefix(s, WAVEFORM_ARB_STR)
+			u, err := strconv.ParseUint(s, 10, 32)
+			if err != nil {
+				goutils.Log.Printf("%s, %v", goutils.Funcname(), err)
+			}
+			return uint(u + WAVEFORM_ARB_0)
+		} else if strings.HasPrefix(s, WAVEFORM_ARB_STR_SHORT) {
+			s = strings.TrimPrefix(s, WAVEFORM_ARB_STR_SHORT)
+			u, err := strconv.ParseUint(s, 10, 32)
+			if err != nil {
+				goutils.Log.Printf("%s, %v", goutils.Funcname(), err)
+			}
+			return uint(u + WAVEFORM_ARB_0)
+		}
 		return math.MaxUint32
 	}
 }
 
-func (mhs5200 *MHS5200A) SetWaveform(ch uint, v uint) error {
-	if v > 4 {
-		return fmt.Errorf("%v is not a valid value", v)
+// NormalisedToArbitraryWaveform convert an amplitude in the range -1.0 - 1.0 to a value in the range of the arbitrary waveform
+func (mhs5200 *MHS5200A) NormalisedToArbitraryWaveform(v float64) int {
+	if v > 1.0 {
+		goutils.Log.Printf("adjusting bad value %v", v)
+		v = 1.0
+	} else if v < -1.0 {
+		goutils.Log.Printf("adjusting bad value %v", v)
+		v = -1.0
 	}
-	return mhs5200.sendCommandAndExpect([]byte(fmt.Sprintf(":s%dw%d", ch, v)), "ok")
+	v = (v - ARB_WAVEFORM_INPUT_MIN) * (ARB_WAVEFORM_OUTPUT_MAX - ARB_WAVEFORM_OUTPUT_MIN) / (ARB_WAVEFORM_INPUT_MAX - ARB_WAVEFORM_INPUT_MIN)
+	return int(math.Round(v))
+}
+
+/* Aribtrary waveform format:
+*
+* Waveform Length 2048 point
+* Waveform amplitude resolution 12 bit
+* Frequency Range 0 - 6MHz
+*
+* 2048 samples in 16 slices, 128 samples per slice. N=0...F for each slice. Each sample is 0 to 4095 with 2048 as the nominal center
+*
+ */
+
+// SetArbitrayWaveform send an arbitrary waveform to the generator
+func (mhs5200 *MHS5200A) SetArbitraryWaveform(slot uint, data []float64) error {
+	if len(data) != ARB_WAVEFORM_NUM_POINTS {
+		return fmt.Errorf("An abrbitrary waveform must contain exactly %v samples", ARB_WAVEFORM_NUM_POINTS)
+	}
+	for slice := 0; slice < ARB_WAVEFORM_NUM_SLICES; slice++ {
+		cmd := fmt.Sprintf(":a%x%x", slot, slice)
+		for sample := 0; sample < ARB_WAVEFORM_SAMPLES_PER_SLICE; sample++ {
+			cmd += fmt.Sprintf("%d", mhs5200.NormalisedToArbitraryWaveform(data[slice*ARB_WAVEFORM_SAMPLES_PER_SLICE+sample]))
+			if sample != (ARB_WAVEFORM_SAMPLES_PER_SLICE - 1) {
+				cmd += ","
+			}
+		}
+		err := mhs5200.sendCommandAndExpect([]byte(cmd), "ok")
+		if err != nil {
+			goutils.Log.Printf("%v failed to send arbitrary waveform slice %v", goutils.Funcname(), slice)
+			return err
+		}
+	}
+	return nil
+}
+
+func (mhs5200 *MHS5200A) SetArbitrayWaveformFromFile(slot uint, filename string) error {
+	if len(filename) == 0 {
+		return fmt.Errorf("filename is empty")
+	}
+	f, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	data := make([]float64, ARB_WAVEFORM_NUM_POINTS)
+	sample := 0
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		s := scanner.Text()
+		if s[0] == '#' { // comment
+			continue
+		}
+		v, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return err
+		}
+		if v > 1.0 || v < -1.0 {
+			return fmt.Errorf("Arbitrary waveform sample values must be between -1.0 and 1.0")
+		}
+		data[sample] = v
+		sample++
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	if sample != ARB_WAVEFORM_NUM_POINTS {
+		return fmt.Errorf("An abrbitrary waveform must contain exactly %v samples, only read %v samples", ARB_WAVEFORM_NUM_POINTS, sample)
+	}
+	err = mhs5200.SetArbitraryWaveform(slot, data)
+	if err != nil {
+		return err
+	}
+	return mhs5200.SetWaveform(1, WAVEFORM_ARB_0+slot)
+}
+
+func (mhs5200 *MHS5200A) IsArbirtraryWaveform(v uint) bool {
+	if v >= WAVEFORM_ARB_0 && v <= WAVEFORM_ARB_15 {
+		return true
+	} else if v >= WAVEFORM_ARB_ALT_0 && v <= WAVEFORM_ARB_ALT_15 {
+		return true
+	}
+	return false
+}
+
+func (mhs5200 *MHS5200A) SetWaveform(ch uint, v uint) error {
+	switch v { // handle our custom waveforms
+	case WAVEFORM_SINC:
+		data := generateSinc()
+		err := mhs5200.SetArbitraryWaveform(WAVEFORM_ARB_15-WAVEFORM_ARB_0, data)
+		if err != nil {
+			return err
+		}
+		return mhs5200.SetWaveform(ch, WAVEFORM_ARB_15)
+
+	case WAVEFORM_NORM_SINC:
+		data := generateNormalisedSinc()
+		err := mhs5200.SetArbitraryWaveform(WAVEFORM_ARB_15-WAVEFORM_ARB_0, data)
+		if err != nil {
+			return err
+		}
+		return mhs5200.SetWaveform(ch, WAVEFORM_ARB_15)
+	}
+	if (v > WAVEFORM_DESCENDING_SAWTOOTH && v < WAVEFORM_ARB_0) || v > WAVEFORM_ARB_15 {
+		return fmt.Errorf("%v is not a valid waveform", v)
+	}
+	err := mhs5200.sendCommandAndExpect([]byte(fmt.Sprintf(":s%dw%d", ch, v)), "ok")
+	if err != nil {
+		return err
+	}
+	if mhs5200.IsArbirtraryWaveform(v) {
+		// We need to delay before sending the next command
+		time.Sleep(2 * time.Second)
+	}
+	return nil
 }
 
 func (mhs5200 *MHS5200A) SetWaveformFromString(ch uint, s string) error {
@@ -515,7 +797,7 @@ func (mhs5200 *MHS5200A) SetAmplitude(ch uint, v float64) error {
 	}
 	if attenuation == ATTENUATION_MINUS_20DB {
 		if v < 5e-3 || v > 2.0 {
-			return fmt.Errorf("%v is not a valid value", v)
+			return fmt.Errorf("%v is not a valid amplitude", v)
 		}
 		v *= 1000.0
 	} else {
@@ -560,7 +842,7 @@ func (mhs5200 *MHS5200A) SetDutyCycle(ch uint, v float64) error {
 		return nil
 	}
 	if v < 0.0 || v > 99.9 {
-		return fmt.Errorf("%v is not a valid value", v)
+		return fmt.Errorf("%v is not a valid duty cycle", v)
 	}
 	return mhs5200.sendCommandAndExpect([]byte(fmt.Sprintf(":s%dd%d", ch, int(v*10.0))), "ok")
 }
@@ -631,7 +913,7 @@ func (mhs5200 *MHS5200A) SetPhase(ch uint, v uint) error {
 		return nil
 	}
 	if v > 360 {
-		return fmt.Errorf("%v is not a valid value", v)
+		return fmt.Errorf("%v is not a valid phase", v)
 	}
 	return mhs5200.sendCommandAndExpect([]byte(fmt.Sprintf(":s%dp%d", ch, v)), "ok")
 }
@@ -1129,6 +1411,7 @@ func NewMHS5200A(port string) (*MHS5200A, error) {
 	if err != nil {
 		return nil, err
 	}
+	stream.Flush()
 	mhs5200 := &MHS5200A{
 		stream: stream,
 		quit:   make(chan struct{}),
@@ -1144,4 +1427,45 @@ func (mhs5200 *MHS5200A) Close() {
 	if mhs5200.stream != nil {
 		mhs5200.stream.Close()
 	}
+}
+
+func convertWaveFile(filename string) error {
+	if len(filename) == 0 {
+		return fmt.Errorf("filename is empty")
+	}
+	f, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	data := make([]float64, 0)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		v, err := strconv.ParseFloat(scanner.Text(), 64)
+		if err != nil {
+			return err
+		}
+		data = append(data, v)
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	autoNormalise(data, -1.0, 1.0)
+	if len(data) == 1024 { // old style 1024 point file convert it
+		waveform := make([]float64, ARB_WAVEFORM_NUM_POINTS)
+		last := len(data) - 1
+		for i, _ := range data {
+			waveform[i*2] = data[i]
+			if i == last { // wraparound
+				waveform[i*2+1] = (data[i] + data[0]) * 0.5
+			} else {
+				waveform[i*2+1] = (data[i] + data[i+1]) * 0.5
+			}
+		}
+		data = waveform
+	}
+	for i, _ := range data {
+		fmt.Println(data[i])
+	}
+	return nil
+
 }

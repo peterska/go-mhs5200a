@@ -39,6 +39,9 @@ options can be zero or more of the following:
     	verbose level
 
 command can be one or more of the following:
+
+  help - show command usage
+  
   showconfig - show the configuration of the current channel
   on - turn output on
   off - turn output off
@@ -60,6 +63,9 @@ command can be one or more of the following:
   sweepon - turn sweep function on
   sweepoff - turn sweep function off
 
+  slot N - set the arbitrary waveform slot to write to
+  arbwaveform file - set arbitrary waveform from file. The file should contain 2048 lines, 1 sample per line in the -1.0 to 1.0 range
+  
   measure cmd - measure values from waveform on ext-input. cmd can be one of frequency, count, period, pulsewidth, duty, negativepulsewidth, stop
 
   sleep N - delay N seconds before executing the next command
@@ -205,6 +211,8 @@ Additional Links
 ----------------
 
 Credit for all of the hard work goes to user `wd5gnr` from [EEV Blog](https://www.eevblog.com/) for reverse engineering the protcol and documenting it here: [MHS5200A Protocol](https://docs.google.com/document/d/1HbLQ4u87RJkD3Ktyw7k9U7Zh5BPNzbrhMlszNGdXiiY/edit)
+
+Credit for the sample arbitrary waveforms included in the waves directory got to user `wd5gnr` and can be found at his github repo here: [wd5gnr/mhs5200a](https://github.com/wd5gnr/mhs5200a)
 
 - [MHS-5200A Serial Protocol Reverse Engineered](https://www.eevblog.com/forum/testgear/mhs-5200a-serial-protocol-reverse-engineered/)
 

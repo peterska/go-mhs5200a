@@ -49,10 +49,16 @@ func usage() {
 	fmt.Printf("Usage: %v [options] [command]...\n", path.Base(os.Args[0]))
 
 	fmt.Printf("\noptions can be zero or more of the following:\n")
+	fmt.Printf("\n")
 	flag.PrintDefaults()
 	fmt.Printf("\n")
 
 	fmt.Printf("command can be one or more of the following:\n")
+	fmt.Printf("\n")
+
+	fmt.Printf("  help - show command usage\n")
+	fmt.Printf("\n")
+
 	fmt.Printf("  showconfig - show the configuration of the current channel. Use channel to 0 to show config for all channels\n")
 	fmt.Printf("  on - turn output on\n")
 	fmt.Printf("  off - turn output off\n")
@@ -60,14 +66,14 @@ func usage() {
 
 	fmt.Printf("  channel [1|2] - sets the channel number commands will apply to\n")
 	fmt.Printf("  frequency N - set the frequency N Hz\n")
-	fmt.Printf("  waveform name - set the waveform to name. Valid names are sine, square, triangle, rising sawtooth, descending sawtooth\n")
+	fmt.Printf("  waveform name - set the waveform to name. Valid names are sine, square, triangle, rising sawtooth, descending sawtooth, sinc, normsinc\n")
 	fmt.Printf("  amplitude N - set the amplitude to N Volts\n")
 	fmt.Printf("  duty N - set the duty cycle to N%%\n")
 	fmt.Printf("  offset N - set the DC offset to N Volts. Valid range is -120%% to +120%% of the configured amplitude\n")
 	fmt.Printf("  phase N - set the phase to N°\n")
 	fmt.Printf("  attenuation [on|off] - configure -20dB channel attenuation\n")
 	fmt.Printf("\n")
-	
+
 	fmt.Printf("  showsweep - show the current sweep mode configuration\n")
 	fmt.Printf("  sweepstart N - set the sweep start frequenecy to N Hz\n")
 	fmt.Printf("  sweepend N - set the sweep end frequenecy to N Hz\n")
@@ -76,18 +82,22 @@ func usage() {
 	fmt.Printf("  sweepon - turn sweep function on\n")
 	fmt.Printf("  sweepoff - turn sweep function off\n")
 	fmt.Printf("\n")
-	
+
+	fmt.Printf("  slot N - set the arbitrary waveform slot to write to\n")
+	fmt.Printf("  arbwaveform file - set arbitrary waveform from file. The file should contain 2048 lines, 1 sample per line in the -1.0 to 1.0 range \n")
+	fmt.Printf("\n")
+
 	fmt.Printf("  measure cmd - measure values from waveform on ext-input. cmd can be one of frequency, count, period, pulsewidth, duty, negativepulsewidth, stop\n")
 	fmt.Printf("\n")
-	
+
 	fmt.Printf("  sleep N - delay N seconds before executing the next command\n")
 	fmt.Printf("  delay N - delay N seconds before executing the next command\n")
 	fmt.Printf("\n")
-	
+
 	fmt.Printf("  save N - save current configuration to slot N\n")
 	fmt.Printf("  load N - load current configuration from slot N\n")
 	fmt.Printf("\n")
-	
+
 	fmt.Printf("Examples:\n")
 	fmt.Printf("%v channel 2 frequency 10000 phase 180 waveform square duty 33.25 attenuation off showconfig on sleep 120 off\n", path.Base(os.Args[0]))
 	fmt.Printf("%v sweepstart 10 sweepend 100000 sweepduration 60 sweetype linear showsweep sweepon delay 60 sweepoff\n", path.Base(os.Args[0]))
@@ -119,6 +129,41 @@ func main() {
 		usage()
 		return
 	}
+	needparam := false
+	cmd := ""
+	param := ""
+	// process cmdline not requiring an instrument
+	for _, argv := range flag.Args() {
+		if needparam {
+			param = argv
+			needparam = false
+		} else {
+			cmd = argv
+			param = ""
+		}
+		switch cmd {
+		case "help":
+			usage()
+			return
+
+		case "convert":
+			if len(param) == 0 {
+				needparam = true
+				continue
+			}
+			err := convertWaveFile(param)
+			if err != nil {
+				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
+			}
+			return
+		}
+	}
+	if needparam {
+		goutils.Log.Printf("Not enough parameters for %v command\n", cmd)
+		os.Exit(10)
+	}
+
 	mhs5200, err := NewMHS5200A(*port)
 	if err != nil {
 		goutils.Log.Print(err)
@@ -129,9 +174,10 @@ func main() {
 	}
 	defer mhs5200.Close()
 	channel := uint(1)
-	needparam := false
-	cmd := ""
-	param := ""
+	slot := uint(0)
+	needparam = false
+	cmd = ""
+	param = ""
 	for _, argv := range flag.Args() {
 		if needparam {
 			param = argv
@@ -149,14 +195,26 @@ func main() {
 			v, err := strconv.ParseUint(param, 10, 32)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 			channel = uint(v)
 			err = mhs5200.SelectChannel(channel)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
+
+		case "slot":
+			if len(param) == 0 {
+				needparam = true
+				continue
+			}
+			v, err := strconv.ParseUint(param, 10, 32)
+			if err != nil {
+				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
+			}
+			slot = uint(v)
 
 		case "sleep":
 			if len(param) == 0 {
@@ -166,7 +224,7 @@ func main() {
 			v, err := strconv.ParseUint(param, 10, 32)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 			fmt.Printf("Sleeping for %v seconds\n", v)
 			time.Sleep(time.Duration(v) * time.Second)
@@ -179,7 +237,7 @@ func main() {
 			v, err := strconv.ParseUint(param, 10, 32)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 			fmt.Printf("Sleeping for %v seconds\n", v)
 			time.Sleep(time.Duration(v) * time.Second)
@@ -192,12 +250,14 @@ func main() {
 			}
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
 			}
 
 		case "showsweep":
 			err = mhs5200.ShowSweepConfig()
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
 			}
 
 		case "frequency":
@@ -208,12 +268,12 @@ func main() {
 			v, err := strconv.ParseFloat(param, 64)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 			err = mhs5200.SetFrequency(channel, v)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 
 		case "waveform":
@@ -224,6 +284,7 @@ func main() {
 			err = mhs5200.SetWaveformFromString(channel, param)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
 			}
 
 		case "amplitude":
@@ -234,11 +295,12 @@ func main() {
 			v, err := strconv.ParseFloat(param, 64)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 			err = mhs5200.SetAmplitude(channel, v)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
 			}
 
 		case "duty":
@@ -249,11 +311,12 @@ func main() {
 			v, err := strconv.ParseFloat(param, 64)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 			err = mhs5200.SetDutyCycle(channel, v)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
 			}
 
 		case "offset":
@@ -264,11 +327,12 @@ func main() {
 			v, err := strconv.ParseFloat(param, 64)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 			err = mhs5200.SetOffset(channel, v)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
 			}
 
 		case "phase":
@@ -279,11 +343,12 @@ func main() {
 			v, err := strconv.ParseFloat(param, 64)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 			err = mhs5200.SetPhase(channel, uint(v))
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
 			}
 
 		case "attenuation":
@@ -300,6 +365,18 @@ func main() {
 			}
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
+			}
+
+		case "arbwaveform":
+			if len(param) == 0 {
+				needparam = true
+				continue
+			}
+			err = mhs5200.SetArbitrayWaveformFromFile(slot, param)
+			if err != nil {
+				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
 			}
 
 		case "sweepstart":
@@ -310,12 +387,12 @@ func main() {
 			v, err := strconv.ParseFloat(param, 64)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 			err = mhs5200.SetSweepStart(v)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 
 		case "sweepend":
@@ -326,12 +403,12 @@ func main() {
 			v, err := strconv.ParseFloat(param, 64)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 			err = mhs5200.SetSweepEnd(v)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 
 		case "sweepduration":
@@ -342,12 +419,12 @@ func main() {
 			v, err := strconv.ParseUint(param, 10, 64)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 			err = mhs5200.SetSweepDuration(uint(v))
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 
 		case "sweeptype":
@@ -358,31 +435,35 @@ func main() {
 			err = mhs5200.SetSweepType(mhs5200.SweepTypeStringToInt(param))
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 
 		case "sweepon":
 			err = mhs5200.SetSweepState(true)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
 			}
 
 		case "sweepoff":
 			err = mhs5200.SetSweepState(false)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
 			}
 
 		case "on":
 			err = mhs5200.SetOnOff(true)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
 			}
 
 		case "off":
 			err = mhs5200.SetOnOff(false)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
 			}
 
 		case "save":
@@ -393,11 +474,12 @@ func main() {
 			v, err := strconv.ParseUint(param, 10, 32)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 			err = mhs5200.Save(uint(v))
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
 			}
 
 		case "load":
@@ -408,11 +490,12 @@ func main() {
 			v, err := strconv.ParseUint(param, 10, 32)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
-				break
+				os.Exit(10)
 			}
 			err = mhs5200.Load(uint(v))
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
 			}
 
 		case "measure":
@@ -423,10 +506,13 @@ func main() {
 			err = mhs5200.Measure(param)
 			if err != nil {
 				goutils.Log.Printf("%v, %v\n", goutils.Funcname(), err)
+				os.Exit(10)
 			}
 
 		default:
 			goutils.Log.Printf("%v, %v\n", goutils.Funcname(), fmt.Errorf("Unknown command %v", cmd))
+			usage()
+			os.Exit(10)
 		}
 	}
 	if err != nil {
