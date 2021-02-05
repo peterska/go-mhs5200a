@@ -6,7 +6,7 @@ Remote control of the MHINSTEK MHS-5200A function generator
 About
 -----
 
-The [MHINSTEK MHS-5200A](https://sigrok.org/wiki/MHINSTEK_MHS-5200A "MHINSTEK MHS-5200A on sigrok") is a cheap, decent, dual channel function generator available from various Chinese vendors. The user interface is very clunky, virtually unusable, so I wrote this command line utility to configure and use the unit without using the controls. Most parameters and functions can be controlled by either command line parameters or a JSON file that stores a sequence of actions to perform.
+The [MHINSTEK MHS-5200A](https://sigrok.org/wiki/MHINSTEK_MHS-5200A "MHINSTEK MHS-5200A on sigrok") is a cheap, decent, dual channel function generator available from various Chinese vendors. The user interface is very clunky, virtually unusable, so I wrote this command line utility to configure and use the unit without using the controls. Most parameters and functions can be controlled by either command line parameters or a JSON file that stores a sequence of actions to perform. Arbitrary waveforms can be configured using a file with 2048 samples ranging in amplitude from -1.0 to 1.0. Sample arbitrary waveform files are included in the waves directory.The scripts folder shows how to generate the needed waveform files using python.
 
 
 Installation
@@ -48,7 +48,7 @@ command can be one or more of the following:
 
   channel [1|2] - sets the channel number commands will apply to
   frequency N - set the frequency N Hz
-  waveform name - set the waveform to name. Valid names are sine, square, triangle, rising sawtooth, descending sawtooth
+  waveform name - set the waveform to name. Valid names are sine, square, triangle, rising sawtooth, descending sawtooth, sinc, normsinc
   amplitude N - set the amplitude to N Volts
   duty N - set the duty cycle to N%
   offset N - set the DC offset to N Volts. Valid range is -120% to +120% of the configured amplitude
@@ -127,6 +127,8 @@ square
 triangle
 rising sawtooth
 descending sawtooth
+sinc
+normsinc
 ````
 Let's look at a brief example
 ````JSON
