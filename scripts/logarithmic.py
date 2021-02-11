@@ -1,11 +1,11 @@
 #!/bin/env python
 
-# Generate a half wave rectified waveform to use with the MHS-5200A function generator
-from math import pi
-from math import sin
+# generate logarithmic waveform
+
 import numpy as np
 import matplotlib.pyplot as plt
 import sys, getopt
+from math import log
 
 def main(argv):
     showplot = False
@@ -18,21 +18,20 @@ def main(argv):
             showplot = True
     
     num_points = 2048
-    amplitude = 1.0
-    t = np.linspace(0, 1, num_points)
+    t = np.linspace(0.05, 1, num_points)
     waveform = np.zeros_like(t)
-    # Flags to allow peaks only one point wide
     for i in range(num_points):
-        x = i/num_points # Fraction along X axis
-        y = amplitude*sin(2*pi*x)
-        if y < 0.0:
-            y = 0.0
-        waveform[i] = y
+        waveform[i] = log(t[i])
+    ymin = min(waveform)
+    ymax = max(waveform)
+    for i in range(num_points):
+        waveform[i] = (waveform[i] - ymin) / (ymax - ymin)
+    
     if showplot:
         plt.plot(t, waveform, '--')
         plt.show()
     else:
-        print("# generated  by scripts/half-wave-rectified.py")
+        print("# logarithmic waveform")
         for y in waveform:
             print(y)
 

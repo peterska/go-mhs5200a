@@ -1,6 +1,6 @@
 #!/bin/env python
 
-# generata a gaussian pulse
+# generate a gaussian pulse
 
 import numpy as np
 from scipy.signal import gausspulse

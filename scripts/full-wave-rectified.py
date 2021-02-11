@@ -19,7 +19,7 @@ def main(argv):
     
     num_points = 2048
     amplitude = 1.0
-    t = np.linspace(0, 1, 2048)
+    t = np.linspace(0, 1, num_points)
     waveform = np.zeros_like(t)
     # Flags to allow peaks only one point wide
     for i in range(num_points):

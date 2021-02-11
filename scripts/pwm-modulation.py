@@ -1,6 +1,6 @@
 #!/bin/env python
 
-# generata pwm modulated signal
+# generate pwm modulated signal
 
 import numpy as np
 from scipy.signal import square

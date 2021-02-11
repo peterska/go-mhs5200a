@@ -26,7 +26,7 @@ def main(argv):
     negative_done = False
     threshold = 1e-4
 
-    t = np.linspace(0, 1, 2048)
+    t = np.linspace(0, 1, num_points)
     waveform = np.zeros_like(t)
 
     for i in range(num_points):

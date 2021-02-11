@@ -1,11 +1,13 @@
 #!/bin/env python
 
-# Generate a half wave rectified waveform to use with the MHS-5200A function generator
-from math import pi
-from math import sin
+# generate white noise
+
 import numpy as np
+from scipy.signal import square
 import matplotlib.pyplot as plt
 import sys, getopt
+from random import gauss
+from random import seed
 
 def main(argv):
     showplot = False
@@ -18,21 +20,20 @@ def main(argv):
             showplot = True
     
     num_points = 2048
-    amplitude = 1.0
     t = np.linspace(0, 1, num_points)
     waveform = np.zeros_like(t)
-    # Flags to allow peaks only one point wide
+    seed()
     for i in range(num_points):
-        x = i/num_points # Fraction along X axis
-        y = amplitude*sin(2*pi*x)
-        if y < 0.0:
-            y = 0.0
-        waveform[i] = y
+        waveform[i] = gauss(0.0, 2.0)
+    ymax = max(waveform)
+    for i in range(num_points):
+        waveform[i] /= ymax
+    
     if showplot:
         plt.plot(t, waveform, '--')
         plt.show()
     else:
-        print("# generated  by scripts/half-wave-rectified.py")
+        print("# white noise with gaussian distribution")
         for y in waveform:
             print(y)
 

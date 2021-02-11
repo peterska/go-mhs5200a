@@ -1,6 +1,6 @@
 #!/bin/env python
 
-# generata a frequency sweep
+# generate a frequency sweep
 
 import numpy as np
 from scipy.signal import chirp
