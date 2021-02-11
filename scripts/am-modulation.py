@@ -6,6 +6,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys, getopt
 
+def normalise(w, minval, maxval):
+    ymin = min(w)
+    ymax = max(w)
+    for i in range(len(w)):
+        w[i] = minval + (w[i] - ymin) / (ymax - ymin) * (maxval - minval)
+    
 def main(argv):
     showplot = False
     try:
@@ -21,12 +27,14 @@ def main(argv):
     modulation_amplitude = 0.5
     carrier_frequency = 10.0
     modulation_frequency = 1.0
-    modulation_index = 1.0
+    modulation_index = 0.5
 
     carrier = carrier_amplitude * np.cos(2 * np.pi * carrier_frequency * time)
     modulator = modulation_amplitude * np.cos(2 * np.pi * modulation_frequency * time)
     product = carrier_amplitude * (1.0 + modulation_index * np.cos(2.0 * np.pi * modulation_frequency * time)) * np.cos(2.0 * np.pi * carrier_frequency * time)
-    product /= (carrier_amplitude * (1.0 + modulation_index))
+
+    normalise(product, -1.0, 1.0)
+    #product /= (carrier_amplitude * (1.0 + modulation_index))
 
     if showplot:
         plt.plot(time, product, '--')

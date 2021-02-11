@@ -7,6 +7,12 @@ from scipy.signal import gausspulse
 import matplotlib.pyplot as plt
 import sys, getopt
 
+def normalise(w, minval, maxval):
+    ymin = min(w)
+    ymax = max(w)
+    for i in range(len(w)):
+        w[i] = minval + (w[i] - ymin) / (ymax - ymin) * (maxval - minval)
+    
 def main(argv):
     showplot = False
     try:
@@ -19,6 +25,7 @@ def main(argv):
     
     t = np.linspace(-1, 1, 2048)
     waveform = gausspulse(t, fc=5)
+    normalise(waveform, -1.0, 1.0)
 
     if showplot:
         plt.plot(t, waveform, '--')

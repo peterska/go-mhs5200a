@@ -3,12 +3,17 @@
 # generate white noise
 
 import numpy as np
-from scipy.signal import square
 import matplotlib.pyplot as plt
 import sys, getopt
 from random import gauss
 from random import seed
 
+def normalise(w, minval, maxval):
+    ymin = min(w)
+    ymax = max(w)
+    for i in range(len(w)):
+        w[i] = minval + (w[i] - ymin) / (ymax - ymin) * (maxval - minval)
+    
 def main(argv):
     showplot = False
     try:
@@ -24,10 +29,9 @@ def main(argv):
     waveform = np.zeros_like(t)
     seed()
     for i in range(num_points):
-        waveform[i] = gauss(0.0, 2.0)
-    ymax = max(waveform)
-    for i in range(num_points):
-        waveform[i] /= ymax
+        waveform[i] = gauss(0.0, 1.0)
+
+    normalise(waveform, -1.0, 1.0)
     
     if showplot:
         plt.plot(t, waveform, '--')

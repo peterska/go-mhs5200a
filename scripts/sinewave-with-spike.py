@@ -7,6 +7,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys, getopt
 
+def normalise(w, minval, maxval):
+    ymin = min(w)
+    ymax = max(w)
+    for i in range(len(w)):
+        w[i] = minval + (w[i] - ymin) / (ymax - ymin) * (maxval - minval)
+    
 def main(argv):
     showplot = False
     try:
@@ -38,8 +44,10 @@ def main(argv):
         if not negative_done and abs(x - 3/4) < threshold:
             negative_done = True
             y = -peak_amplitude
-        waveform[i] = y / peak_amplitude
+        waveform[i] = y
 
+    normalise(waveform, -1.0, 1.0)
+    
     if showplot:
         plt.plot(t, waveform, '--')
         plt.show()

@@ -7,6 +7,12 @@ import matplotlib.pyplot as plt
 import sys, getopt
 from math import exp
 
+def normalise(w, minval, maxval):
+    ymin = min(w)
+    ymax = max(w)
+    for i in range(len(w)):
+        w[i] = minval + (w[i] - ymin) / (ymax - ymin) * (maxval - minval)
+    
 def main(argv):
     showplot = False
     try:
@@ -22,11 +28,9 @@ def main(argv):
     waveform = np.zeros_like(t)
     for i in range(num_points):
         waveform[i] = exp(3.0 * t[i])
-    ymin = min(waveform)
-    ymax = max(waveform)
-    for i in range(num_points):
-        waveform[i] = (waveform[i] - ymin) / (ymax - ymin)
-    
+
+    normalise(waveform, -1.0, 1.0)
+        
     if showplot:
         plt.plot(t, waveform, '--')
         plt.show()
