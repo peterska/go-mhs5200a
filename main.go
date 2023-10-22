@@ -124,6 +124,9 @@ func main() {
 			goutils.Log.Print(err)
 			os.Exit(10)
 		}
+		if len(flag.Args()) == 0 { // nothing to do
+			return
+		}
 	}
 	if len(flag.Args()) == 0 { // nothing to do
 		usage()
